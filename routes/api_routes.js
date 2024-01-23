@@ -1,64 +1,68 @@
 const router = require('express').Router();
-const { v4 } = require('uuid');
 
-const { getUserData, saveUserData } = require('../db');
+const db = require('../db/connection')
+
+// const { v4 } = require('uuid');
+
+// const { getUserData, saveUserData } = require('../db');
   
 // localhost:333/api/users
 
 
 // Route to retreive/GET all users from the json database
 router.get('/users', async (requestObj, responseObj) => {
-    // Read the json file data
-    const users = await getUserData();
   
-    responseObj.send(users);
+  // Make a query to the db and get all rows from the users table
+  db.query('SELECT * FROM users', (err, users) => { 
+    if (err) return console.log(err);
+
+    responseObj.json(users);
   });
-  
+});
+
   // Route to add a user to the json database
   router.post('/users', async (requestObj, responseObj) => {
+    
     // Get the old users array
-    const users = await getUserData();
     const userData = requestObj.body;
-  
-    // Overwrite the old array with the newly updated array
-    if (!users.find(user => user.username === userData.username) && userData.username) {
-      // Push the body object from the client to our old array
-  
-      userData.id = v4();
-  
-      users.push(userData);
-  
-      await saveUserData(users);
-  
-      return responseObj.send({
-        message: 'User added successfully!'
-      });
-    }
-  
-    responseObj.send({
-      error: 402,
-      message: 'User already exists'
+    
+    // Run a query to INSERT a new user into the users table with our requestObj.body data(username, email, password)
+
+    db.query('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', 
+    [userData.username, userData.email, userData.password], (err, results) => {
+      if (err) return console.log(err);
+
+      responseObj.json({
+        message: 'User added successfully!',
+        insertId: results.insertId
+      })
     });
+    
+  
+    // responseObj.send({
+    //   error: 402,
+    //   message: 'User already exists'
+    // });
   
   });
   
   // GET Route to return a user by ID
   router.get('/users/:id', async (requestObj, responseObj) => {
       const user_id = requestObj.params.id;
-  
-      const users = await getUserData();
-  
-      const user = users.find(user => user.id === user_id);
-  
-      if (user) {
-          return responseObj.send(user);
-      }
-  
-      responseObj.send ({
+
+      db.query('SELECT * FROM users WHERE id=?', [user_id], (err, user) => {
+        if (err) return console.log(err);
+
+        if (user) {
+          return responseObj.json(results[0]);
+        }
+
+        responseObj.json({
           error: 404,
-          message: 'User not found with that ID'
-      })
-  
+          message: 'User not found with that'
+        })
+
+      });
   });
 
   // DELETE Route to remove a user from the database
